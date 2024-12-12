@@ -43,6 +43,7 @@ class GitRepo:
         attribute_commit_message_author=False,
         attribute_commit_message_committer=False,
         commit_prompt=None,
+        commit_prompt_file=None,
         subtree_only=False,
     ):
         self.io = io
@@ -55,7 +56,17 @@ class GitRepo:
         self.attribute_committer = attribute_committer
         self.attribute_commit_message_author = attribute_commit_message_author
         self.attribute_commit_message_committer = attribute_commit_message_committer
-        self.commit_prompt = commit_prompt
+        if commit_prompt:
+            self.commit_prompt = commit_prompt
+        elif commit_prompt_file:
+            try:
+                with open(commit_prompt_file) as f:
+                    self.commit_prompt = f.read().strip()
+            except (IOError, OSError) as e:
+                io.tool_error(f"Error reading commit prompt file: {e}")
+                self.commit_prompt = None
+        else:
+            self.commit_prompt = None
         self.subtree_only = subtree_only
         self.ignore_file_cache = {}
 
