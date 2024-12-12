@@ -514,6 +514,11 @@ def get_parser(default_config_files, git_root):
         help="Specify a custom prompt for generating commit messages",
     )
     group.add_argument(
+        "--commit-prompt-file",
+        metavar="FILE",
+        help="Specify a file containing the custom prompt for generating commit messages",
+    )
+    group.add_argument(
         "--dry-run",
         action=argparse.BooleanOptionalAction,
         default=False,
