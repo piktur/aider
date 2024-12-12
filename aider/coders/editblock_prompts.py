@@ -48,6 +48,7 @@ Examples of when to suggest shell commands:
 - If you added a test, suggest how to run it with the testing tool used by the project.
 - Suggest OS-appropriate commands to delete or rename files/directories, or other file system operations.
 - If your code changes add new dependencies, suggest the command to install them.
+- If you must scaffold a new module or component use the provided generators to generate the scaffolding eg. `pnpm gen component --args "{pkg}" "{componentName}" "{namepsace}" "{type}"` 
 - Etc.
 """
 
@@ -196,5 +197,6 @@ Examples of when to suggest shell commands:
 - If you added a test, suggest how to run it with the testing tool used by the project.
 - Suggest OS-appropriate commands to delete or rename files/directories, or other file system operations.
 - If your code changes add new dependencies, suggest the command to install them.
+- If you must scaffold a new module or component use the provided generators to generate scaffolding eg. `pnpm gen component --args "{pkg}" "{componentName}" "{namepsace}" "{type}"` 
 - Etc.
 """
