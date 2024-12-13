@@ -223,6 +223,14 @@ def get_parser(default_config_files, git_root):
         help="Specify what edit format the LLM should use (default depends on model)",
     )
     group.add_argument(
+        "--stop-token",
+        action="store_const",
+        const="stop_token",
+        metavar="STOP_TOKEN",
+        default=None,
+        help="Terminate session when stop_token detected in .aider.chat.history",
+    )
+    group.add_argument(
         "--architect",
         action="store_const",
         dest="edit_format",
