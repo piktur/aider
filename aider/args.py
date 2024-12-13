@@ -223,16 +223,10 @@ def get_parser(default_config_files, git_root):
         help="Specify what edit format the LLM should use (default depends on model)",
     )
     group.add_argument(
-        "--stop-token",
-        metavar="STOP_TOKEN",
-        default=None,
-        help="Terminate session when stop_token detected in .aider.chat.history",
-    )
-    group.add_argument(
-        "--max-iterations",
-        metavar="MAX_ITERATIONS",
-        default=None,
-        help="Terminate session when max_iterations exhausted",
+        "--max-reflections",
+        metavar="MAX_REFLECTIONS",
+        default=3,
+        help="Terminate session when max_reflections exhausted",
     )
     group.add_argument(
         "--architect",
