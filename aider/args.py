@@ -224,8 +224,6 @@ def get_parser(default_config_files, git_root):
     )
     group.add_argument(
         "--stop-token",
-        action="store_const",
-        const="stop_token",
         metavar="STOP_TOKEN",
         default=None,
         help="Terminate session when stop_token detected in .aider.chat.history",
