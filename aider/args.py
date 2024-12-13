@@ -229,6 +229,12 @@ def get_parser(default_config_files, git_root):
         help="Terminate session when stop_token detected in .aider.chat.history",
     )
     group.add_argument(
+        "--max-iterations",
+        metavar="MAX_ITERATIONS",
+        default=None,
+        help="Terminate session when max_iterations exhausted",
+    )
+    group.add_argument(
         "--architect",
         action="store_const",
         dest="edit_format",
