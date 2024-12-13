@@ -265,6 +265,7 @@ class Coder:
         dirty_commits=True,
         dry_run=False,
         map_tokens=1024,
+        max_reflections=3,
         verbose=False,
         stream=True,
         use_git=True,
@@ -423,6 +424,8 @@ class Coder:
                 else:
                     self.io.tool_warning(f"Error: Read-only file {fname} does not exist. Skipping.")
 
+        self.max_reflections = max_reflections
+        
         if map_tokens is None:
             use_repo_map = main_model.use_repo_map
             map_tokens = 1024
