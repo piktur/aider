@@ -224,9 +224,10 @@ def get_parser(default_config_files, git_root):
     )
     group.add_argument(
         "--max-reflections",
+        type=int,
         metavar="MAX_REFLECTIONS",
         default=3,
-        help="Terminate session when max_reflections exhausted",
+        help="Terminate session when max_reflections exhausted (default: 3)",
     )
     group.add_argument(
         "--architect",
