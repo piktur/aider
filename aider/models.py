@@ -75,7 +75,8 @@ MODEL_ALIASES = {
     "35-turbo": "gpt-3.5-turbo",
     "3": "gpt-3.5-turbo",
     # Other models
-    "deepseek": "deepseek/deepseek-coder",
+    "deepseek": "deepseek/deepseek-chat",
+    "flash": "gemini/gemini-2.0-flash-exp",
 }
 
 
@@ -161,6 +162,7 @@ MODEL_SETTINGS = [
         lazy=True,
         reminder="sys",
         editor_edit_format="editor-diff",
+        examples_as_sys_msg=True,
     ),
     ModelSettings(
         "openai/gpt-4o-2024-08-06",
@@ -169,6 +171,7 @@ MODEL_SETTINGS = [
         use_repo_map=True,
         lazy=True,
         reminder="sys",
+        examples_as_sys_msg=True,
     ),
     ModelSettings(
         "gpt-4o-2024-08-06",
@@ -177,6 +180,7 @@ MODEL_SETTINGS = [
         use_repo_map=True,
         lazy=True,
         reminder="sys",
+        examples_as_sys_msg=True,
     ),
     ModelSettings(
         "gpt-4o-2024-11-20",
@@ -185,6 +189,7 @@ MODEL_SETTINGS = [
         use_repo_map=True,
         lazy=True,
         reminder="sys",
+        examples_as_sys_msg=True,
     ),
     ModelSettings(
         "openai/gpt-4o-2024-11-20",
@@ -193,6 +198,7 @@ MODEL_SETTINGS = [
         use_repo_map=True,
         lazy=True,
         reminder="sys",
+        examples_as_sys_msg=True,
     ),
     ModelSettings(
         "gpt-4o",
@@ -202,6 +208,7 @@ MODEL_SETTINGS = [
         lazy=True,
         reminder="sys",
         editor_edit_format="editor-diff",
+        examples_as_sys_msg=True,
     ),
     ModelSettings(
         "gpt-4o-mini",
@@ -610,6 +617,12 @@ MODEL_SETTINGS = [
         send_undo_reply=False,
     ),
     ModelSettings(
+        "gemini/gemini-2.0-flash-exp",
+        "diff",
+        use_repo_map=True,
+        send_undo_reply=False,
+    ),
+    ModelSettings(
         "deepseek/deepseek-chat",
         "diff",
         use_repo_map=True,
@@ -659,6 +672,13 @@ MODEL_SETTINGS = [
         reminder="sys",
     ),
     ModelSettings(
+        "openrouter/deepseek/deepseek-chat",
+        "diff",
+        use_repo_map=True,
+        examples_as_sys_msg=True,
+        reminder="sys",
+    ),
+    ModelSettings(
         "openrouter/openai/gpt-4o",
         "diff",
         weak_model_name="openrouter/openai/gpt-4o-mini",
@@ -666,6 +686,7 @@ MODEL_SETTINGS = [
         lazy=True,
         reminder="sys",
         editor_edit_format="editor-diff",
+        examples_as_sys_msg=True,
     ),
     ModelSettings(
         "openai/o1-mini",
@@ -756,6 +777,39 @@ MODEL_SETTINGS = [
         use_system_prompt=False,
         use_temperature=False,
         streaming=False,
+    ),
+    ModelSettings(
+        "openrouter/openai/o1",
+        "diff",
+        weak_model_name="openrouter/openai/gpt-4o-mini",
+        editor_model_name="openrouter/openai/gpt-4o",
+        editor_edit_format="editor-diff",
+        use_repo_map=True,
+        streaming=False,
+        use_temperature=False,
+        # extra_params=dict(extra_body=dict(reasoning_effort="high")),
+    ),
+    ModelSettings(
+        "openai/o1",
+        "diff",
+        weak_model_name="openai/gpt-4o-mini",
+        editor_model_name="openai/gpt-4o",
+        editor_edit_format="editor-diff",
+        use_repo_map=True,
+        streaming=False,
+        use_temperature=False,
+        # extra_params=dict(extra_body=dict(reasoning_effort="high")),
+    ),
+    ModelSettings(
+        "o1",
+        "diff",
+        weak_model_name="gpt-4o-mini",
+        editor_model_name="gpt-4o",
+        editor_edit_format="editor-diff",
+        use_repo_map=True,
+        streaming=False,
+        use_temperature=False,
+        # extra_params=dict(extra_body=dict(reasoning_effort="high")),
     ),
     ModelSettings(
         "openrouter/qwen/qwen-2.5-coder-32b-instruct",
@@ -873,10 +927,9 @@ class Model(ModelSettings):
         self.keys_in_environment = res.get("keys_in_environment")
 
         max_input_tokens = self.info.get("max_input_tokens") or 0
-        if max_input_tokens < 32 * 1024:
-            self.max_chat_history_tokens = 1024
-        else:
-            self.max_chat_history_tokens = 2 * 1024
+        # Calculate max_chat_history_tokens as 1/16th of max_input_tokens,
+        # with minimum 1k and maximum 8k
+        self.max_chat_history_tokens = min(max(max_input_tokens / 16, 1024), 8192)
 
         self.configure_model_settings(model)
         if weak_model is False:
@@ -1131,6 +1184,15 @@ class Model(ModelSettings):
 
         return res
 
+    def get_repo_map_tokens(self):
+        map_tokens = 1024
+        max_inp_tokens = self.info.get("max_input_tokens")
+        if max_inp_tokens:
+            map_tokens = max_inp_tokens / 8
+            map_tokens = min(map_tokens, 4096)
+            map_tokens = max(map_tokens, 1024)
+        return map_tokens
+
 
 def register_models(model_settings_fnames):
     files_loaded = []
@@ -1225,10 +1287,10 @@ def sanity_check_model(io, model):
             status = "Set" if value else "Not set"
             io.tool_output(f"- {key}: {status}")
 
-        if platform.system() == "Windows" or True:
+        if platform.system() == "Windows":
             io.tool_output(
-                "If you just set these environment variables using `setx` you may need to restart"
-                " your terminal or command prompt for the changes to take effect."
+                "Note: You may need to restart your terminal or command prompt for `setx` to take"
+                " effect."
             )
 
     elif not model.keys_in_environment:

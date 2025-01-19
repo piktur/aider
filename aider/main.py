@@ -9,7 +9,11 @@ import webbrowser
 from dataclasses import fields
 from pathlib import Path
 
-import git
+try:
+    import git
+except ImportError:
+    git = None
+
 import importlib_resources
 from dotenv import load_dotenv
 from prompt_toolkit.enums import EditingMode
@@ -93,6 +97,9 @@ def make_new_repo(git_root, io):
 
 
 def setup_git(git_root, io):
+    if git is None:
+        return
+
     try:
         cwd = Path.cwd()
     except OSError:
@@ -106,7 +113,9 @@ def setup_git(git_root, io):
         except ANY_GIT_ERROR:
             pass
     elif cwd == Path.home():
-        io.tool_warning("You should probably run aider in a directory, not your home dir.")
+        io.tool_warning(
+            "You should probably run aider in your project's directory, not your home dir."
+        )
         return
     elif cwd and io.confirm_ask(
         "No git repo found, create one to track aider's changes (recommended)?"
@@ -166,7 +175,8 @@ def check_gitignore(git_root, io, ask=True):
             existing_lines = content.splitlines()
             for pat in patterns:
                 if pat not in existing_lines:
-                    patterns_to_add.append(pat)
+                    if "*" in pat or (Path(git_root) / pat).exists():
+                        patterns_to_add.append(pat)
         except OSError as e:
             io.tool_error(f"Error when trying to read {gitignore_file}: {e}")
             return
@@ -205,6 +215,22 @@ def check_streamlit_install(io):
     )
 
 
+def write_streamlit_credentials():
+    from streamlit.file_util import get_streamlit_file_path
+
+    # See https://github.com/Aider-AI/aider/issues/772
+
+    credential_path = Path(get_streamlit_file_path()) / "credentials.toml"
+    if not os.path.exists(credential_path):
+        empty_creds = '[general]\nemail = ""\n'
+
+        os.makedirs(os.path.dirname(credential_path), exist_ok=True)
+        with open(credential_path, "w") as f:
+            f.write(empty_creds)
+    else:
+        print("Streamlit credentials already exist.")
+
+
 def launch_gui(args):
     from streamlit.web import cli
 
@@ -212,6 +238,9 @@ def launch_gui(args):
 
     print()
     print("CONTROL-C to exit...")
+
+    # Necessary so streamlit does not prompt the user for an email address.
+    write_streamlit_credentials()
 
     target = gui.__file__
 
@@ -350,18 +379,18 @@ def load_dotenv_files(git_root, dotenv_fname, encoding="utf-8"):
 
 
 def register_litellm_models(git_root, model_metadata_fname, io, verbose=False):
-    model_metatdata_files = []
+    model_metadata_files = []
 
     # Add the resource file path
     resource_metadata = importlib_resources.files("aider.resources").joinpath("model-metadata.json")
-    model_metatdata_files.append(str(resource_metadata))
+    model_metadata_files.append(str(resource_metadata))
 
-    model_metatdata_files += generate_search_path_list(
+    model_metadata_files += generate_search_path_list(
         ".aider.model.metadata.json", git_root, model_metadata_fname
     )
 
     try:
-        model_metadata_files_loaded = models.register_litellm_models(model_metatdata_files)
+        model_metadata_files_loaded = models.register_litellm_models(model_metadata_files)
         if len(model_metadata_files_loaded) > 0 and verbose:
             io.tool_output("Loaded model metadata from:")
             for model_metadata_file in model_metadata_files_loaded:
@@ -385,6 +414,12 @@ def sanity_check_repo(repo, io):
         if not repo.git_repo_error:
             return True
         error_msg = str(repo.git_repo_error)
+    except UnicodeDecodeError as exc:
+        error_msg = (
+            "Failed to read the Git repository. This issue is likely caused by a path encoded "
+            f'in a format different from the expected encoding "{sys.getfilesystemencoding()}".\n'
+            f"Internal error: {str(exc)}"
+        )
     except ANY_GIT_ERROR as exc:
         error_msg = str(exc)
         bad_ver = "version in (1, 2)" in error_msg
@@ -410,7 +445,9 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if argv is None:
         argv = sys.argv[1:]
 
-    if force_git_root:
+    if git is None:
+        git_root = None
+    elif force_git_root:
         git_root = force_git_root
     else:
         git_root = get_git_root()
@@ -456,6 +493,9 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     # Parse again to include any arguments that might have been defined in .env
     args = parser.parse_args(argv)
+
+    if git is None:
+        args.git = False
 
     if args.analytics_disable:
         analytics = Analytics(permanently_disable=True)
@@ -512,6 +552,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             code_theme=args.code_theme,
             dry_run=args.dry_run,
             encoding=args.encoding,
+            line_endings=args.line_endings,
             llm_history_file=args.llm_history_file,
             editingmode=editing_mode,
             fancy_input=args.fancy_input,
@@ -646,7 +687,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     # We can't know the git repo for sure until after parsing the args.
     # If we guessed wrong, reparse because that changes things like
     # the location of the config.yml and history files.
-    if args.git and not force_git_root:
+    if args.git and not force_git_root and git is not None:
         right_repo_root = guessed_wrong_repo(io, git_root, fnames, git_dname)
         if right_repo_root:
             analytics.event("exit", reason="Recursing with correct repo")
@@ -783,6 +824,9 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     commands = Commands(
         io,
         None,
+        voice_language=args.voice_language,
+        voice_input_device=args.voice_input_device,
+        voice_format=args.voice_format,
         verify_ssl=args.verify_ssl,
         args=args,
         parser=parser,
@@ -805,6 +849,11 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             )
         args.stream = False
 
+    if args.map_tokens is None:
+        map_tokens = main_model.get_repo_map_tokens()
+    else:
+        map_tokens = args.map_tokens
+
     try:
         coder = Coder.create(
             main_model=main_model,
@@ -817,7 +866,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             auto_commits=args.auto_commits,
             dirty_commits=args.dirty_commits,
             dry_run=args.dry_run,
-            map_tokens=args.map_tokens,
+            map_tokens=map_tokens,
             verbose=args.verbose,
             stream=args.stream,
             use_git=args.git,
@@ -860,7 +909,11 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     if args.watch_files:
         file_watcher = FileWatcher(
-            coder, gitignores=ignores, verbose=args.verbose, analytics=analytics
+            coder,
+            gitignores=ignores,
+            verbose=args.verbose,
+            analytics=analytics,
+            root=str(Path.cwd()) if args.subtree_only else None,
         )
         coder.file_watcher = file_watcher
 

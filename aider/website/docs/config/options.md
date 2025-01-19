@@ -13,9 +13,7 @@ or review them below.
 - TOC
 {:toc}
 
-## LLM keys
-
-{% include special-keys.md %}
+{% include keys.md %}
 
 ## Usage summary
 
@@ -75,7 +73,7 @@ usage: aider [-h] [--model] [--opus] [--sonnet] [--haiku] [--4]
              [--show-prompts] [--voice-format] [--voice-language]
              [--voice-input-device] [--file] [--read] [--vim]
              [--chat-language] [--yes-always] [-v] [--load]
-             [--encoding] [-c] [--env-file]
+             [--encoding] [--line-endings] [-c] [--env-file]
              [--suggest-shell-commands | --no-suggest-shell-commands]
              [--fancy-input | --no-fancy-input]
              [--multiline | --no-multiline]
@@ -138,7 +136,7 @@ Aliases:
   - `-3`
 
 ### `--deepseek`
-Use deepseek/deepseek-coder model for the main chat  
+Use deepseek/deepseek-chat model for the main chat  
 Environment variable: `AIDER_DEEPSEEK`  
 
 ### `--o1-mini`
@@ -277,7 +275,7 @@ Environment variable: `AIDER_CACHE_KEEPALIVE_PINGS`
 ## Repomap settings:
 
 ### `--map-tokens VALUE`
-Suggested number of tokens to use for repo map, use 0 to disable (default: 1024)  
+Suggested number of tokens to use for repo map, use 0 to disable  
 Environment variable: `AIDER_MAP_TOKENS`  
 
 ### `--map-refresh VALUE`
@@ -383,7 +381,7 @@ Set the background color for the current item in the completion menu (default: t
 Environment variable: `AIDER_COMPLETION_MENU_CURRENT_BG_COLOR`  
 
 ### `--code-theme VALUE`
-Set the markdown code theme (default: default, other options include monokai, solarized-dark, solarized-light)  
+Set the markdown code theme (default: default, other options include monokai, solarized-dark, solarized-light, or a Pygments builtin style, see https://pygments.org/styles for available themes)  
 Default: default  
 Environment variable: `AIDER_CODE_THEME`  
 
@@ -706,6 +704,11 @@ Environment variable: `AIDER_LOAD`
 Specify the encoding for input and output (default: utf-8)  
 Default: utf-8  
 Environment variable: `AIDER_ENCODING`  
+
+### `--line-endings VALUE`
+Line endings to use when writing files (default: platform)  
+Default: platform  
+Environment variable: `AIDER_LINE_ENDINGS`  
 
 ### `--config CONFIG_FILE`
 Specify the config file (default: search for .aider.conf.yml in git root, cwd or home directory)  

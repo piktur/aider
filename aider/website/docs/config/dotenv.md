@@ -20,11 +20,7 @@ Aider will look for a `.env` file in these locations:
 
 If the files above exist, they will be loaded in that order. Files loaded last will take priority.
 
-## Storing LLM keys
-
-{% include special-keys.md %}
-
-{% include env-keys-tip.md %}
+{% include keys.md %}
 
 ## Sample .env file
 
@@ -92,7 +88,7 @@ cog.outl("```")
 ## Use gpt-3.5-turbo model for the main chat
 #AIDER_35TURBO=
 
-## Use deepseek/deepseek-coder model for the main chat
+## Use deepseek/deepseek-chat model for the main chat
 #AIDER_DEEPSEEK=
 
 ## Use o1-mini model for the main chat
@@ -185,7 +181,7 @@ cog.outl("```")
 ###################
 # Repomap settings:
 
-## Suggested number of tokens to use for repo map, use 0 to disable (default: 1024)
+## Suggested number of tokens to use for repo map, use 0 to disable
 #AIDER_MAP_TOKENS=
 
 ## Control how often the repo map is refreshed. Options: auto, always, files, manual (default: auto)
@@ -251,7 +247,7 @@ cog.outl("```")
 ## Set the background color for the current item in the completion menu (default: terminal's default text color)
 #AIDER_COMPLETION_MENU_CURRENT_BG_COLOR=
 
-## Set the markdown code theme (default: default, other options include monokai, solarized-dark, solarized-light)
+## Set the markdown code theme (default: default, other options include monokai, solarized-dark, solarized-light, or a Pygments builtin style, see https://pygments.org/styles for available themes)
 #AIDER_CODE_THEME=default
 
 ## Show diffs when committing changes (default: False)
@@ -424,6 +420,9 @@ cog.outl("```")
 
 ## Specify the encoding for input and output (default: utf-8)
 #AIDER_ENCODING=utf-8
+
+## Line endings to use when writing files (default: platform)
+#AIDER_LINE_ENDINGS=platform
 
 ## Specify the .env file to load (default: .env in git root)
 #AIDER_ENV_FILE=.env

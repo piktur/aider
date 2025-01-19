@@ -15,11 +15,7 @@ load whichever is found first.
 - The root of your git repo.
 - Your home directory.
 
-## Storing LLM keys
-
-{% include special-keys.md %}
-
-{% include env-keys-tip.md %}
+{% include keys.md %}
 
 ## A note on lists
 
@@ -100,7 +96,7 @@ cog.outl("```")
 ## Use gpt-3.5-turbo model for the main chat
 #35turbo: false
 
-## Use deepseek/deepseek-coder model for the main chat
+## Use deepseek/deepseek-chat model for the main chat
 #deepseek: false
 
 ## Use o1-mini model for the main chat
@@ -208,7 +204,7 @@ cog.outl("```")
 ###################
 # Repomap settings:
 
-## Suggested number of tokens to use for repo map, use 0 to disable (default: 1024)
+## Suggested number of tokens to use for repo map, use 0 to disable
 #map-tokens: xxx
 
 ## Control how often the repo map is refreshed. Options: auto, always, files, manual (default: auto)
@@ -274,7 +270,7 @@ cog.outl("```")
 ## Set the background color for the current item in the completion menu (default: terminal's default text color)
 #completion-menu-current-bg-color: xxx
 
-## Set the markdown code theme (default: default, other options include monokai, solarized-dark, solarized-light)
+## Set the markdown code theme (default: default, other options include monokai, solarized-dark, solarized-light, or a Pygments builtin style, see https://pygments.org/styles for available themes)
 #code-theme: default
 
 ## Show diffs when committing changes (default: False)
@@ -465,6 +461,9 @@ cog.outl("```")
 
 ## Specify the encoding for input and output (default: utf-8)
 #encoding: utf-8
+
+## Line endings to use when writing files (default: platform)
+#line-endings: platform
 
 ## Specify the config file (default: search for .aider.conf.yml in git root, cwd or home directory)
 #config: xxx
