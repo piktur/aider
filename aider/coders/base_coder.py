@@ -462,6 +462,7 @@ class Coder:
 
         self.summarizer_thread = None
         self.summarized_done_messages = []
+        self.summarizing_messages = None
 
         if not self.done_messages and restore_chat_history:
             history_md = self.io.read_text(self.io.chat_history_file)
@@ -945,8 +946,9 @@ class Coder:
         self.summarizer_thread.start()
 
     def summarize_worker(self):
+        self.summarizing_messages = list(self.done_messages)
         try:
-            self.summarized_done_messages = self.summarizer.summarize(self.done_messages)
+            self.summarized_done_messages = self.summarizer.summarize(self.summarizing_messages)
         except ValueError as err:
             self.io.tool_warning(err.args[0])
 
@@ -960,7 +962,9 @@ class Coder:
         self.summarizer_thread.join()
         self.summarizer_thread = None
 
-        self.done_messages = self.summarized_done_messages
+        if self.summarizing_messages == self.done_messages:
+            self.done_messages = self.summarized_done_messages
+        self.summarizing_messages = None
         self.summarized_done_messages = []
 
     def move_back_cur_messages(self, message):
@@ -1229,6 +1233,44 @@ class Coder:
 
         return chunks
 
+    def check_tokens(self, messages):
+        """Check if the messages will fit within the model's token limits."""
+        input_tokens = self.main_model.token_count(messages)
+        max_input_tokens = self.main_model.info.get("max_input_tokens") or 0
+
+        proceed = None
+
+        if max_input_tokens and input_tokens >= max_input_tokens:
+            self.io.tool_error(
+                f"Your estimated chat context of {input_tokens:,} tokens exceeds the"
+                f" {max_input_tokens:,} token limit for {self.main_model.name}!"
+            )
+            self.io.tool_output("To reduce the chat context:")
+            self.io.tool_output("- Use /drop to remove unneeded files from the chat")
+            self.io.tool_output("- Use /clear to clear the chat history")
+            self.io.tool_output("- Break your code into smaller files")
+            proceed = "y"
+            self.io.tool_output(
+                "It's probably safe to try and send the request, most providers won't charge if"
+                " the context limit is exceeded."
+            )
+
+        # Special warning for Ollama models about context window size
+        if self.main_model.name.startswith(("ollama/", "ollama_chat/")):
+            extra_params = getattr(self.main_model, "extra_params", None) or {}
+            num_ctx = extra_params.get("num_ctx", 8192)
+            if max_input_tokens and max_input_tokens > num_ctx:
+                self.io.tool_waning(
+                    f"Your Ollama model is configured with num_ctx={num_ctx} tokens of"
+                    " context window\nSee"
+                    " https://aider.chat/docs/llms/ollama.html#setting-the-context-window-size"
+                    " for help configuring larger context windows."
+                )
+
+        if proceed and not self.io.confirm_ask("Try to proceed anyway?", default=proceed):
+            return False
+        return True
+
     def send_message(self, inp):
         self.event("message_send_starting")
 
@@ -1238,6 +1280,8 @@ class Coder:
 
         chunks = self.format_messages()
         messages = chunks.all_messages()
+        if not self.check_tokens(messages):
+            return
         self.warm_cache(chunks)
 
         if self.verbose:
@@ -1325,7 +1369,17 @@ class Coder:
 
         self.show_usage_report()
 
+        self.add_assistant_reply_to_cur_messages()
+
         if exhausted:
+            if self.cur_messages and self.cur_messages[-1]["role"] == "user":
+                self.cur_messages += [
+                    dict(
+                        role="assistant",
+                        content="FinishReasonLength exception: you sent too many tokens",
+                    ),
+                ]
+
             self.show_exhausted_error()
             self.num_exhausted_context_windows += 1
             return
@@ -1356,13 +1410,16 @@ class Coder:
                 interrupted = True
 
         if interrupted:
-            content += "\n^C KeyboardInterrupt"
-            self.cur_messages += [dict(role="assistant", content=content)]
+            if self.cur_messages and self.cur_messages[-1]["role"] == "user":
+                self.cur_messages[-1]["content"] += "\n^C KeyboardInterrupt"
+            else:
+                self.cur_messages += [dict(role="user", content="^C KeyboardInterrupt")]
+            self.cur_messages += [
+                dict(role="assistant", content="I see that you interrupted my previous reply.")
+            ]
             return
 
         edited = self.apply_updates()
-
-        self.update_cur_messages()
 
         if edited:
             self.aider_edited_files.update(edited)
@@ -1384,7 +1441,6 @@ class Coder:
                 ok = self.io.confirm_ask("Attempt to fix lint errors?")
                 if ok:
                     self.reflected_message = lint_errors
-                    self.update_cur_messages()
                     return
 
         shared_output = self.run_shell_commands()
@@ -1401,7 +1457,6 @@ class Coder:
                 ok = self.io.confirm_ask("Attempt to fix test errors?")
                 if ok:
                     self.reflected_message = test_errors
-                    self.update_cur_messages()
                     return
 
     def reply_completed(self):
@@ -1477,7 +1532,7 @@ class Coder:
 
         return res
 
-    def update_cur_messages(self):
+    def add_assistant_reply_to_cur_messages(self):
         if self.partial_response_content:
             self.cur_messages += [dict(role="assistant", content=self.partial_response_content)]
         if self.partial_response_function_call:

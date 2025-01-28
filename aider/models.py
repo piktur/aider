@@ -76,6 +76,7 @@ MODEL_ALIASES = {
     "3": "gpt-3.5-turbo",
     # Other models
     "deepseek": "deepseek/deepseek-chat",
+    "r1": "deepseek/deepseek-reasoner",
     "flash": "gemini/gemini-2.0-flash-exp",
 }
 
@@ -623,11 +624,42 @@ MODEL_SETTINGS = [
         send_undo_reply=False,
     ),
     ModelSettings(
+        "openrouter/deepseek/deepseek-r1",
+        "diff",
+        weak_model_name="openrouter/deepseek/deepseek-chat",
+        editor_model_name="openrouter/deepseek/deepseek-chat",
+        editor_edit_format="editor-diff",
+        use_repo_map=True,
+        examples_as_sys_msg=True,
+        use_temperature=False,
+        reminder="user",
+        caches_by_default=True,
+        extra_params={
+            "max_tokens": 8192,
+        },
+    ),
+    ModelSettings(
+        "deepseek/deepseek-reasoner",
+        "diff",
+        weak_model_name="deepseek/deepseek-chat",
+        editor_model_name="deepseek/deepseek-chat",
+        editor_edit_format="editor-diff",
+        use_repo_map=True,
+        examples_as_sys_msg=True,
+        use_temperature=False,
+        reminder="user",
+        caches_by_default=True,
+        extra_params={
+            "max_tokens": 8192,
+        },
+    ),
+    ModelSettings(
         "deepseek/deepseek-chat",
         "diff",
         use_repo_map=True,
         examples_as_sys_msg=True,
         reminder="sys",
+        caches_by_default=True,
         extra_params={
             "max_tokens": 8192,
         },
@@ -742,6 +774,17 @@ MODEL_SETTINGS = [
         reminder="user",
         use_system_prompt=False,
         use_temperature=False,
+    ),
+    ModelSettings(
+        "azure/o1",
+        "diff",
+        weak_model_name="azure/gpt-4o-mini",
+        editor_model_name="azure/gpt-4o",
+        editor_edit_format="editor-diff",
+        use_repo_map=True,
+        streaming=False,
+        use_temperature=False,
+        # extra_params=dict(extra_body=dict(reasoning_effort="high")),
     ),
     ModelSettings(
         "o1-preview",
@@ -1316,8 +1359,8 @@ def fuzzy_match_models(name):
     name = name.lower()
 
     chat_models = set()
-    for model, attrs in litellm.model_cost.items():
-        model = model.lower()
+    for orig_model, attrs in litellm.model_cost.items():
+        model = orig_model.lower()
         if attrs.get("mode") != "chat":
             continue
         provider = attrs.get("litellm_provider", "").lower()
@@ -1326,12 +1369,12 @@ def fuzzy_match_models(name):
         provider += "/"
 
         if model.startswith(provider):
-            fq_model = model
+            fq_model = orig_model
         else:
-            fq_model = provider + model
+            fq_model = provider + orig_model
 
         chat_models.add(fq_model)
-        chat_models.add(model)
+        chat_models.add(orig_model)
 
     chat_models = sorted(chat_models)
     # exactly matching model
@@ -1365,16 +1408,28 @@ def print_matching_models(io, search):
 
 
 def get_model_settings_as_yaml():
+    from dataclasses import fields
+
     import yaml
 
     model_settings_list = []
     for ms in MODEL_SETTINGS:
-        model_settings_dict = {
-            field.name: getattr(ms, field.name) for field in fields(ModelSettings)
-        }
+        # Create dict with explicit field order
+        model_settings_dict = {}
+        for field in fields(ModelSettings):
+            model_settings_dict[field.name] = getattr(ms, field.name)
         model_settings_list.append(model_settings_dict)
+        # Add blank line between entries
+        model_settings_list.append(None)
 
-    return yaml.dump(model_settings_list, default_flow_style=False)
+    # Filter out None values before dumping
+    yaml_str = yaml.dump(
+        [ms for ms in model_settings_list if ms is not None],
+        default_flow_style=False,
+        sort_keys=False,  # Preserve field order from dataclass
+    )
+    # Add actual blank lines between entries
+    return yaml_str.replace("\n- ", "\n\n- ")
 
 
 def main():
