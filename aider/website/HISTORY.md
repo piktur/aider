@@ -23,6 +23,20 @@ cog.out(text)
 ]]]-->
 
 
+### Aider v0.75.0
+
+- Basic support for Claude 3.7 Sonnet
+  - Use `--model sonnet` to use the new 3.7
+  - Thinking support coming soon.
+- Bugfix to `/editor` command.
+
+### Aider v0.74.3
+
+- Downgrade streamlit dependency to avoid threading bug.
+- Added support for tree-sitter language pack.
+- Added openrouter/o3-mini-high model configuration.
+- Added build.gradle.kts to special files for Kotlin project support, by Lucas Shadler.
+
 ### Aider v0.74.2
 
 - Prevent more than one cache warming thread from becoming active.
