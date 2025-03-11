@@ -144,7 +144,12 @@ class GitRepo:
         # if context:
         #    full_commit_message += "\n\n# Aider chat conversation:\n\n" + context
 
-        cmd = ["-m", full_commit_message, "--no-verify"]
+        cmd = [
+            "-m",
+            full_commit_message,
+            # DO NOT disable git hooks
+            # "--no-verify"
+        ]
         if fnames:
             fnames = [str(self.abs_root_path(fn)) for fn in fnames]
             for fname in fnames:
@@ -306,7 +311,9 @@ class GitRepo:
                             if blob.type == "blob":  # blob is a file
                                 files.add(blob.path)
                         except IndexError:
-                            self.io.tool_warning(f"GitRepo: read error skipping {blob.path}")
+                            self.io.tool_warning(
+                                f"GitRepo: read error skipping {blob.path}"
+                            )
                             continue
                         except StopIteration:
                             break
