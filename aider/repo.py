@@ -127,29 +127,7 @@ class GitRepo:
         if not diffs:
             return
 
-        if message:
-            commit_message = message
-        else:
-            commit_message = self.get_commit_message(diffs, context)
-
-        if aider_edits and self.attribute_commit_message_author:
-            commit_message = "aider: " + commit_message
-        elif self.attribute_commit_message_committer:
-            commit_message = "aider: " + commit_message
-
-        if not commit_message:
-            commit_message = "(no commit message provided)"
-
-        full_commit_message = commit_message
-        # if context:
-        #    full_commit_message += "\n\n# Aider chat conversation:\n\n" + context
-
-        cmd = [
-            "-m",
-            full_commit_message,
-            # DO NOT disable git hooks
-            # "--no-verify"
-        ]
+        cmd = ["-m", "lefthook"]
         if fnames:
             fnames = [str(self.abs_root_path(fn)) for fn in fnames]
             for fname in fnames:
@@ -177,6 +155,9 @@ class GitRepo:
             commit_hash = self.get_head_commit_sha(short=True)
             self.io.tool_output(f"Commit {commit_hash} {commit_message}", bold=True)
             return commit_hash, commit_message
+        except git.exc.HookExceptionError as err:
+            self.io.tool_error(str(err))
+            return None, None, err
         except ANY_GIT_ERROR as err:
             self.io.tool_error(f"Unable to commit: {err}")
         finally:
