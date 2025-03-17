@@ -307,6 +307,7 @@ class Coder:
         dirty_commits=True,
         dry_run=False,
         map_tokens=1024,
+        max_reflections=3,
         verbose=False,
         stream=True,
         use_git=True,
@@ -478,6 +479,8 @@ class Coder:
                     self.abs_read_only_fnames.add(abs_fname)
                 else:
                     self.io.tool_warning(f"Error: Read-only file {fname} does not exist. Skipping.")
+
+        self.max_reflections = max_reflections
 
         if map_tokens is None:
             use_repo_map = main_model.use_repo_map
@@ -996,6 +999,9 @@ class Coder:
 
     def summarize_start(self):
         if not self.summarizer.too_big(self.done_messages):
+            return
+
+        if threading.current_thread()._is_stopped:
             return
 
         self.summarize_end()
@@ -1581,19 +1587,9 @@ class Coder:
 
         if edited:
             self.aider_edited_files.update(edited)
-            saved_message = self.auto_commit(edited)
-
-            if not saved_message and hasattr(self.gpt_prompts, "files_content_gpt_edits_no_repo"):
-                saved_message = self.gpt_prompts.files_content_gpt_edits_no_repo
-
-            self.move_back_cur_messages(saved_message)
-
-        if self.reflected_message:
-            return
 
         if edited and self.auto_lint:
             lint_errors = self.lint_edited(edited)
-            self.auto_commit(edited, context="Ran the linter")
             self.lint_outcome = not lint_errors
             if lint_errors:
                 ok = self.io.confirm_ask("Attempt to fix lint errors?")
@@ -1616,6 +1612,26 @@ class Coder:
                 if ok:
                     self.reflected_message = test_errors
                     return
+
+        if edited:
+            try:
+                success, saved_message, commit_error = self.auto_commit(edited)
+
+                if not success:
+                    ok = self.io.confirm_ask("Attempt to fix errors?")
+                    if ok:
+                        self.reflected_message = str(commit_error)
+
+                if not success and hasattr(
+                    self.gpt_prompts,
+                    "files_content_gpt_edits_no_repo"
+                ):
+                    saved_message = self.gpt_prompts.files_content_gpt_edits_no_repo
+
+                self.move_back_cur_messages(saved_message)
+            except Exception as err:
+                print("Error in reply_completed:", err)
+
 
     def reply_completed(self):
         pass
@@ -2378,19 +2394,23 @@ class Coder:
             res = self.repo.commit(fnames=edited, context=context, aider_edits=True, coder=self)
             if res:
                 self.show_auto_commit_outcome(res)
-                commit_hash, commit_message = res
-                return self.gpt_prompts.files_content_gpt_edits.format(
+                commit_hash, commit_message, commit_error = res
+                if commit_error:
+                    return False, None, commit_error
+
+                return True, self.gpt_prompts.files_content_gpt_edits.format(
                     hash=commit_hash,
                     message=commit_message,
-                )
+                ), None
 
-            return self.gpt_prompts.files_content_gpt_no_edits
+            return True, self.gpt_prompts.files_content_gpt_no_edits, None
         except ANY_GIT_ERROR as err:
             self.io.tool_error(f"Unable to commit: {str(err)}")
-            return
 
     def show_auto_commit_outcome(self, res):
-        commit_hash, commit_message = res
+        commit_hash, commit_message, commit_error = res
+        if commit_error:
+            return
         self.last_aider_commit_hash = commit_hash
         self.aider_commit_hashes.add(commit_hash)
         self.last_aider_commit_message = commit_message

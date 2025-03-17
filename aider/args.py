@@ -166,6 +166,13 @@ def get_parser(default_config_files, git_root):
         help="Specify what edit format the LLM should use (default depends on model)",
     )
     group.add_argument(
+        "--max-reflections",
+        type=int,
+        metavar="MAX_REFLECTIONS",
+        default=3,
+        help="Terminate session when max_reflections exhausted (default: 3)",
+    )
+    group.add_argument(
         "--architect",
         action="store_const",
         dest="edit_format",
@@ -495,6 +502,11 @@ def get_parser(default_config_files, git_root):
         "--commit-prompt",
         metavar="PROMPT",
         help="Specify a custom prompt for generating commit messages",
+    )
+    group.add_argument(
+        "--commit-prompt-file",
+        metavar="FILE",
+        help="Specify a file containing the custom prompt for generating commit messages",
     )
     group.add_argument(
         "--dry-run",

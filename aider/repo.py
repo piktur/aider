@@ -71,6 +71,7 @@ class GitRepo:
         attribute_commit_message_author=False,
         attribute_commit_message_committer=False,
         commit_prompt=None,
+        commit_prompt_file=None,
         subtree_only=False,
         git_commit_verify=True,
         attribute_co_authored_by=False,  # Added parameter
@@ -86,7 +87,18 @@ class GitRepo:
         self.attribute_commit_message_author = attribute_commit_message_author
         self.attribute_commit_message_committer = attribute_commit_message_committer
         self.attribute_co_authored_by = attribute_co_authored_by  # Assign from parameter
-        self.commit_prompt = commit_prompt
+
+        if commit_prompt:
+            self.commit_prompt = commit_prompt
+        elif commit_prompt_file:
+            try:
+                with open(commit_prompt_file) as f:
+                    self.commit_prompt = f.read().strip()
+            except (IOError, OSError) as e:
+                io.tool_error(f"Error reading commit prompt file: {e}")
+                self.commit_prompt = None
+        else:
+            self.commit_prompt = None
         self.subtree_only = subtree_only
         self.git_commit_verify = git_commit_verify
         self.ignore_file_cache = {}
@@ -294,7 +306,6 @@ class GitRepo:
         committer_name = f"{original_user_name} (aider)"
 
         try:
-            # Use context managers to handle environment variables
             with contextlib.ExitStack() as stack:
                 if use_attribute_committer:
                     stack.enter_context(
@@ -311,11 +322,13 @@ class GitRepo:
                 self.repo.git.commit(cmd)
                 commit_hash = self.get_head_commit_sha(short=True)
                 self.io.tool_output(f"Commit {commit_hash} {commit_message}", bold=True)
-                return commit_hash, commit_message
-
+                return commit_hash, commit_message, None
         except ANY_GIT_ERROR as err:
             self.io.tool_error(f"Unable to commit: {err}")
-            # No return here, implicitly returns None
+            return False, False, str(err.stderr) or str(err)
+        except Exception as err:
+            self.io.tool_error(f"Unable to commit: {err}")
+            return False, False, str(err)
 
     def get_rel_repo_dir(self):
         try:

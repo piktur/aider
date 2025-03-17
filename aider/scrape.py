@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import re
 import sys
 
@@ -23,9 +24,14 @@ def check_env():
         has_pip = False
 
     try:
+        endpoint = os.environ.get("PLAYWRIGHT_WS_ENDPOINT")
+
         with sync_playwright() as p:
-            p.chromium.launch()
-            has_chromium = True
+            if endpoint:
+                browser = p.chromium.connect(endpoint)
+            else:
+                browser = p.chromium.launch()
+            has_chromium = bool(browser)
     except Exception:
         has_chromium = False
 
@@ -146,9 +152,15 @@ class Scraper:
         from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
         from playwright.sync_api import sync_playwright
 
+        endpoint = os.environ.get("PLAYWRIGHT_WS_ENDPOINT")
+        browser = None
+
         with sync_playwright() as p:
             try:
-                browser = p.chromium.launch()
+                if endpoint:
+                    browser = p.chromium.connect(endpoint)
+                else:
+                    browser = p.chromium.launch()
             except Exception as e:
                 self.playwright_available = False
                 self.print_error(str(e))
@@ -187,7 +199,8 @@ class Scraper:
                     content = None
                     mime_type = None
             finally:
-                browser.close()
+                if browser:
+                   browser.close()
 
         return content, mime_type
 
