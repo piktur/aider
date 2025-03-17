@@ -55,6 +55,7 @@ class GitRepo:
         attribute_commit_message_author=False,
         attribute_commit_message_committer=False,
         commit_prompt=None,
+        commit_prompt_file=None,
         subtree_only=False,
     ):
         self.io = io
@@ -67,7 +68,17 @@ class GitRepo:
         self.attribute_committer = attribute_committer
         self.attribute_commit_message_author = attribute_commit_message_author
         self.attribute_commit_message_committer = attribute_commit_message_committer
-        self.commit_prompt = commit_prompt
+        if commit_prompt:
+            self.commit_prompt = commit_prompt
+        elif commit_prompt_file:
+            try:
+                with open(commit_prompt_file) as f:
+                    self.commit_prompt = f.read().strip()
+            except (IOError, OSError) as e:
+                io.tool_error(f"Error reading commit prompt file: {e}")
+                self.commit_prompt = None
+        else:
+            self.commit_prompt = None
         self.subtree_only = subtree_only
         self.ignore_file_cache = {}
 
@@ -116,24 +127,7 @@ class GitRepo:
         if not diffs:
             return
 
-        if message:
-            commit_message = message
-        else:
-            commit_message = self.get_commit_message(diffs, context)
-
-        if aider_edits and self.attribute_commit_message_author:
-            commit_message = "aider: " + commit_message
-        elif self.attribute_commit_message_committer:
-            commit_message = "aider: " + commit_message
-
-        if not commit_message:
-            commit_message = "(no commit message provided)"
-
-        full_commit_message = commit_message
-        # if context:
-        #    full_commit_message += "\n\n# Aider chat conversation:\n\n" + context
-
-        cmd = ["-m", full_commit_message, "--no-verify"]
+        cmd = ["-m", "(aider)"]
         if fnames:
             fnames = [str(self.abs_root_path(fn)) for fn in fnames]
             for fname in fnames:
@@ -159,10 +153,16 @@ class GitRepo:
         try:
             self.repo.git.commit(cmd)
             commit_hash = self.get_head_commit_sha(short=True)
+            # Get the generated commit message
+            commit_message = self.get_head_commit_message()
             self.io.tool_output(f"Commit {commit_hash} {commit_message}", bold=True)
-            return commit_hash, commit_message
+            return commit_hash, commit_message, None
         except ANY_GIT_ERROR as err:
             self.io.tool_error(f"Unable to commit: {err}")
+            return False, False, str(err.stderr) or str(err)
+        except Exception as err:
+            self.io.tool_error(f"Unable to commit: {err}")
+            return False, False, str(err)
         finally:
             # Restore the env
 
